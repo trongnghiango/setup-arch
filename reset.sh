@@ -20,11 +20,4 @@ pvremove -f /dev/vda2 || true
 # ========================================
 
 echo "[RESET] Dọn dẹp hoàn tất. Chuẩn bị triển khai lại..."
-sleep 2
 
-# --- Bước 2: Chạy lại script deploy chính ---
-echo
-echo "--- GỌI SCRIPT DEPLOY.SH ---"
-# Chạy deploy.sh với sudo nếu cần, nhưng vì reset_and_deploy đã chạy với sudo,
-# có thể không cần nữa. Để an toàn, cứ để sudo.
-sudo ./deploy.sh
