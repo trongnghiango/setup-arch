@@ -117,7 +117,6 @@ PROGS_FILE="/tmp/progs.csv"
 curl -Ls "${PROGS_LIST_URL_PARAM}" | sed '/^#/d' > "${PROGS_FILE}"
 
 echo "--> Cài đặt các gói từ kho Pacman (bao gồm cả stow)..."
-# Thêm 'stow' vào danh sách cài đặt
 pacman -S --noconfirm --needed stow
 while IFS=, read -r tag program comment; do
     if [[ "$tag" == "" || "$tag" == "M" ]]; then pacman -S --noconfirm --needed "$program"; fi
@@ -149,35 +148,33 @@ sudo -u "${USER_NAME_PARAM}" /bin/bash -c '
     DOTFILES_DIR="$SRC_DIR/dotfiles"
     if [ ! -d "$DOTFILES_DIR" ]; then git clone --depth=1 --recurse-submodules "${DOTFILES_REPO}" "${DOTFILES_DIR}"; fi
 
-    # Chuyển vào thư mục dotfiles để thực hiện stow
     cd "${DOTFILES_DIR}"
 
     # --- ĐỊNH NGHĨA CÁC GÓI DOTFILES SẼ ĐƯỢC CÀI ĐẶT ---
-    # Danh sách này được tạo dựa trên cấu trúc .config bạn cung cấp.
-    # Bạn có thể thêm/bớt/gom nhóm tùy ý.
-    local -a DOTFILES_PACKAGES=(
-        "bin"          # Chứa các script trong ~/.local/bin
+    # !!! LỖI ĐÃ ĐƯỢC SỬA: Xóa "local -a" !!!
+    DOTFILES_PACKAGES=(
+        "bin"
         "brave"
         "dunst"
         "firefox"
-        "gtk"          # Gói gom nhóm: gtk-2,3,4, fontconfig, .gtkrc-2.0
+        "gtk"
         "latexmk"
         "lf"
-        "misc-config"  # Gói gom nhóm: mimeapps.list, user-dirs.dirs
+        "misc-config"
         "mpd"
         "mpv"
         "ncmpcpp"
         "newsboat"
-        "nsxiv"        # Gói cho nsxiv
+        "nsxiv"
         "nvim"
         "pinentry"
         "pipewire"
         "pulse"
         "python"
-        "shell"        # Gói gom nhóm: cấu hình shell và .zprofile
+        "shell"
         "wal"
         "wget"
-        "x11"          # Gói gom nhóm: cấu hình x11 và .xprofile
+        "x11"
         "zathura"
         "zsh"
     )
@@ -185,7 +182,6 @@ sudo -u "${USER_NAME_PARAM}" /bin/bash -c '
     echo "    --> Bắt đầu tạo liên kết tượng trưng cho ${#DOTFILES_PACKAGES[@]} gói..."
     for pkg in "${DOTFILES_PACKAGES[@]}"; do
         echo "        - Stow package: ${pkg}"
-        # Chạy stow cho từng gói
         stow --target="$HOME" --no-folding "${pkg}"
     done
 
@@ -194,7 +190,6 @@ sudo -u "${USER_NAME_PARAM}" /bin/bash -c '
         find "$HOME/.local/bin" -type f -exec chmod +x {} \;
     fi
 
-    # Quay trở lại thư mục nhà
     cd "$HOME"
 '
 # Các bước cấu hình cuối cùng với quyền root
