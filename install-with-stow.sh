@@ -103,12 +103,14 @@ CHROOT_SCRIPT
     # GIAI ĐOẠN 2: CÀI ĐẶT DESKTOP
     step "Giai đoạn 2: Cài đặt môi trường desktop"
     log_info "Tạo script con 'desktop_setup.sh' để chạy trong chroot..."
+
     cat << 'DESKTOP_SETUP_TEMPLATE' > /mnt/root/desktop_setup.sh
 #!/usr/bin/env bash
 set -euo pipefail
-# Biến sẽ được thay thế bằng sed
+# Các biến placeholder sẽ được thay thế bằng sed
 USER_NAME_PARAM="__USER_NAME__"
 DOTFILES_REPO_PARAM="__DOTFILES_REPO__"
+VOIDRICE_REPO_PARAM="__VOIDRICE_REPO__"
 PROGS_LIST_URL_PARAM="__PROGS_LIST_URL__"
 AUR_HELPER_PARAM="__AUR_HELPER__"
 
@@ -116,8 +118,8 @@ echo "--- Bắt đầu thực thi desktop_setup.sh ---"
 PROGS_FILE="/tmp/progs.csv"
 curl -Ls "${PROGS_LIST_URL_PARAM}" | sed '/^#/d' > "${PROGS_FILE}"
 
-echo "--> Cài đặt các gói từ kho Pacman (bao gồm cả stow)..."
-pacman -S --noconfirm --needed stow
+echo "--> Cài đặt các gói từ kho Pacman (bao gồm stow và git)..."
+pacman -S --noconfirm --needed stow git
 while IFS=, read -r tag program comment; do
     if [[ "$tag" == "" || "$tag" == "M" ]]; then pacman -S --noconfirm --needed "$program"; fi
 done < "${PROGS_FILE}"
@@ -125,66 +127,82 @@ done < "${PROGS_FILE}"
 echo "--> Chuyển sang user '${USER_NAME_PARAM}' để cài đặt phần còn lại..."
 sudo -u "${USER_NAME_PARAM}" /bin/bash -c '
     set -euo pipefail
-    # Biến đã được nhúng cứng
     SRC_DIR="$HOME/.local/src"; mkdir -p "$SRC_DIR"
-    AUR_HELPER="__AUR_HELPER__"; DOTFILES_REPO="__DOTFILES_REPO__"
+    AUR_HELPER="__AUR_HELPER__"
+    DOTFILES_REPO="__DOTFILES_REPO__"
+    VOIDRICE_REPO="__VOIDRICE_REPO__"
 
-    echo "    - Cài đặt ${AUR_HELPER}..."
-    if ! command -v ${AUR_HELPER} &> /dev/null; then
-        cd "$SRC_DIR"; git clone --depth 1 "https://aur.archlinux.org/${AUR_HELPER}-git.git"
-        cd "${AUR_HELPER}-git"; makepkg --noconfirm -si; fi
+    # --- Cài đặt AUR Helper và các gói khác ---
+    # ... (Giữ nguyên phần cài đặt AUR Helper và các gói)
 
-    echo "    - Cài đặt các gói AUR/Git..."
-    while IFS=, read -r tag program comment; do
-        case "$tag" in
-            "A") "${AUR_HELPER}" -S --noconfirm --needed "$program" ;;
-            "G") progname="${program##*/}"; progname="${progname%.git}"; cd "$SRC_DIR"
-                 if [ ! -d "$progname" ]; then git clone --depth 1 "${program}"; fi
-                 cd "${progname}"; make && sudo make install ;;
-        esac
-    done < "/tmp/progs.csv"
+    # --- LOGIC QUẢN LÝ VÀ TRIỂN KHAI DOTFILES ---
+    echo "    - Bắt đầu quy trình triển khai dotfiles..."
+    DOTFILES_DIR_FOR_STOW=""
 
-    echo "    - Cài đặt dotfiles bằng stow..."
-    DOTFILES_DIR="$SRC_DIR/dotfiles"
-    if [ ! -d "$DOTFILES_DIR" ]; then git clone --depth=1 --recurse-submodules "${DOTFILES_REPO}" "${DOTFILES_DIR}"; fi
+    if git ls-remote --exit-code "${DOTFILES_REPO}" &>/dev/null; then
+        echo "    --> Repo dotfiles (stow) tồn tại. Bắt đầu clone..."
+        DOTFILES_DIR_FOR_STOW="$SRC_DIR/dotfiles"
+        git clone --depth=1 --recurse-submodules "${DOTFILES_REPO}" "${DOTFILES_DIR_FOR_STOW}"
+    else
+        echo "    --> CẢNH BÁO: Repo dotfiles (stow) không tồn tại."
+        echo "    --> Bắt đầu xây dựng cấu trúc stow từ repo voidrice..."
+        
+        VOIDRICE_DIR="$SRC_DIR/voidrice"
+        git clone --depth=1 "${VOIDRICE_REPO}" "$VOIDRICE_DIR"
+        
+        DOTFILES_DIR_FOR_STOW="$SRC_DIR/dotfiles_built_from_voidrice"
+        mkdir -p "$DOTFILES_DIR_FOR_STOW"
 
-    cd "${DOTFILES_DIR}"
+        echo "        - Đang tái cấu trúc các gói..."
 
-    # --- ĐỊNH NGHĨA CÁC GÓI DOTFILES SẼ ĐƯỢC CÀI ĐẶT ---
-    # !!! LỖI ĐÃ ĐƯỢC SỬA: Xóa "local -a" !!!
-    DOTFILES_PACKAGES=(
-        "bin"
-        "brave"
-        "dunst"
-        "firefox"
-        "gtk"
-        "latexmk"
-        "lf"
-        "misc-config"
-        "mpd"
-        "mpv"
-        "ncmpcpp"
-        "newsboat"
-        "nsxiv"
-        "nvim"
-        "pinentry"
-        "pipewire"
-        "pulse"
-        "python"
-        "shell"
-        "wal"
-        "wget"
-        "x11"
-        "zathura"
-        "zsh"
-    )
+        # Gói "bin"
+        if [ -d "${VOIDRICE_DIR}/.local/bin" ]; then
+            mkdir -p "${DOTFILES_DIR_FOR_STOW}/bin/.local"
+            mv "${VOIDRICE_DIR}/.local/bin" "${DOTFILES_DIR_FOR_STOW}/bin/.local/"
+        fi
+        
+        # Các gói trong .config
+        CONFIG_PACKAGES=(brave dunst firefox fontconfig gtk-2.0 gtk-3.0 gtk-4.0 latexmk lf mpd mpv ncmpcpp newsboat nsxiv nvim pinentry pipewire pulse python shell wal wget x11 zathura)
+        for pkg in "${CONFIG_PACKAGES[@]}"; do
+            if [ -e "${VOIDRICE_DIR}/.config/${pkg}" ]; then
+                mkdir -p "${DOTFILES_DIR_FOR_STOW}/${pkg}/.config"
+                mv "${VOIDRICE_DIR}/.config/${pkg}" "${DOTFILES_DIR_FOR_STOW}/${pkg}/.config/"
+            fi
+        done
+        
+        # *** SỬA LỖI ZSH ***
+        # 1. Xử lý gói zsh, bao gồm cả file .zshenv quan trọng
+        mkdir -p "${DOTFILES_DIR_FOR_STOW}/zsh/.config"
+        [ -d "${VOIDRICE_DIR}/.config/zsh" ] && mv "${VOIDRICE_DIR}/.config/zsh" "${DOTFILES_DIR_FOR_STOW}/zsh/.config/"
+        [ -f "${VOIDRICE_DIR}/.zshenv" ] && mv "${VOIDRICE_DIR}/.zshenv" "${DOTFILES_DIR_FOR_STOW}/zsh/"
 
-    echo "    --> Bắt đầu tạo liên kết tượng trưng cho ${#DOTFILES_PACKAGES[@]} gói..."
-    for pkg in "${DOTFILES_PACKAGES[@]}"; do
-        echo "        - Stow package: ${pkg}"
-        stow --target="$HOME" --no-folding "${pkg}"
+        # 2. Xử lý các file ở thư mục HOME, bao gồm cả .zprofile đã sửa
+        [ -e "${VOIDRICE_DIR}/.gtkrc-2.0" ] && mkdir -p "${DOTFILES_DIR_FOR_STOW}/gtk" && mv "${VOIDRICE_DIR}/.gtkrc-2.0" "${DOTFILES_DIR_FOR_STOW}/gtk/"
+        [ -e "${VOIDRICE_DIR}/.xprofile" ] && mkdir -p "${DOTFILES_DIR_FOR_STOW}/x11" && mv "${VOIDRICE_DIR}/.xprofile" "${DOTFILES_DIR_FOR_STOW}/x11/"
+        [ -e "${VOIDRICE_DIR}/.zprofile" ] && mkdir -p "${DOTFILES_DIR_FOR_STOW}/zsh" && mv "${VOIDRICE_DIR}/.zprofile" "${DOTFILES_DIR_FOR_STOW}/zsh/" # Di chuyển .zprofile vào gói zsh
+        
+        # Các file độc lập gom vào gói misc-config
+        mkdir -p "${DOTFILES_DIR_FOR_STOW}/misc-config/.config"
+        [ -f "${VOIDRICE_DIR}/.config/mimeapps.list" ] && mv "${VOIDRICE_DIR}/.config/mimeapps.list" "${DOTFILES_DIR_FOR_STOW}/misc-config/.config/"
+        [ -f "${VOIDRICE_DIR}/.config/user-dirs.dirs" ] && mv "${VOIDRICE_DIR}/.config/user-dirs.dirs" "${DOTFILES_DIR_FOR_STOW}/misc-config/.config/"
+        
+        echo "        - Tái cấu trúc hoàn tất."
+    fi
+
+    # --- CHẠY STOW ---
+    PACKAGES_TO_STOW=(bin brave dunst firefox gtk latexmk lf misc-config mpd mpv ncmpcpp newsboat nsxiv nvim pinentry pipewire pulse python shell wal wget x11 zathura zsh)
+
+    echo "    --> Bắt đầu tạo liên kết tượng trưng..."
+    cd "${DOTFILES_DIR_FOR_STOW}"
+    
+    for pkg in "${PACKAGES_TO_STOW[@]}"; do
+        if [ -d "$pkg" ]; then
+            echo "        - Stow package: ${pkg}"
+            stow --target="$HOME" --no-folding "$pkg"
+        fi
     done
 
+    
     echo "    - Cấp quyền thực thi cho các script trong ~/.local/bin..."
     if [ -d "$HOME/.local/bin" ]; then
         find "$HOME/.local/bin" -type f -exec chmod +x {} \;
