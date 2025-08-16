@@ -72,7 +72,12 @@ main() {
     mkfs.fat -F32 "${PART_BOOT}"; if [ "${FILESYSTEM}" = "btrfs" ]; then mkfs.btrfs -f /dev/vg0/root; else mkfs.ext4 -F /dev/vg0/root; fi
     mkswap /dev/vg0/swap; swapon /dev/vg0/swap; mount /dev/vg0/root /mnt; mkdir -p /mnt/boot; mount "${PART_BOOT}" /mnt/boot
     log_info "Tối ưu mirror và pacstrap..."; pacman -Sy --noconfirm --needed reflector &>/dev/null
-    reflector --country 'VN,SG,JP' --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+    reflector --country 'VN,SG,JP,HK,TW' --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+    # ================= BỔ SUNG ĐỂ SỬA LỖI PGP KEYRING =================
+    log_info "Cập nhật keyring của môi trường live để tránh lỗi PGP..."
+    # Buộc làm mới danh sách gói và cài đặt keyring mới nhất
+    pacman -Sy --noconfirm --needed archlinux-keyring
+    # ===================================================================
     local -a PACKAGES_TO_INSTALL=(base base-devel linux-lts linux-firmware rsync xorg-xinit networkmanager lvm2 grub efibootmgr sudo git curl neovim zsh dash libnewt)
     if [ "${FILESYSTEM}" = "btrfs" ]; then PACKAGES_TO_INSTALL+=( "btrfs-progs" ); fi
     pacstrap /mnt "${PACKAGES_TO_INSTALL[@]}"
