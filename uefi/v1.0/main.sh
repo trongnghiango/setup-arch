@@ -75,14 +75,6 @@ main() {
     reflector --country 'VN,SG,JP,HK,TW' --protocol https --sort rate --save /etc/pacman.d/mirrorlist
     # ================= BỔ SUNG ĐỂ SỬA LỖI PGP KEYRING =================
     log_info "Cập nhật keyring của môi trường live để tránh lỗi PGP..."
-    
-    # Xóa bỏ các khóa cũ có thể gây xung đột (an toàn trong live env)
-    rm -rf /etc/pacman.d/gnupg
-    # Khởi tạo lại trust database
-    pacman-key --init
-    # Tải và điền vào các khóa chính của Arch Linux
-    pacman-key --populate archlinux
-    # Bây giờ, đồng bộ hóa và cập nhật keyring sẽ thành công
     pacman -Sy --noconfirm --needed archlinux-keyring
     # ===================================================================
     local -a PACKAGES_TO_INSTALL=(base base-devel linux-lts linux-firmware rsync xorg-xinit networkmanager lvm2 grub efibootmgr sudo git curl neovim zsh dash libnewt)
