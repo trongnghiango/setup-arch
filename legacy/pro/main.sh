@@ -122,7 +122,7 @@ main() {
 
     log_info "Cập nhật keyring của môi trường live để tránh lỗi PGP..."; pacman -Sy --noconfirm --needed archlinux-keyring
     log_info "Tối ưu mirror và pacstrap..."; pacman -Sy --noconfirm --needed reflector &>/dev/null
-    reflector --country 'VN,SG,JP,HK,TW' --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+    reflector --country 'VN,SG,JP,HK' --protocol https --sort rate --save /etc/pacman.d/mirrorlist
     local -a PACKAGES_TO_INSTALL=(base base-devel linux-lts linux-firmware rsync xorg-xinit networkmanager lvm2 grub os-prober ntfs-3g sudo git curl neovim zsh dash libnewt)
     if [ "${FILESYSTEM}" = "btrfs" ]; then PACKAGES_TO_INSTALL+=( "btrfs-progs" ); fi
     pacstrap /mnt "${PACKAGES_TO_INSTALL[@]}"
