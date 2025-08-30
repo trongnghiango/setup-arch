@@ -30,7 +30,7 @@ sudo -u "${USER_NAME}" /bin/bash -c '
     set -euo pipefail
     DOTFILES_REPO="'${DOTFILES_REPO}'"
     # Sử dụng tên thư mục rõ ràng hơn cho kho dotfiles-stow
-    DOTFILES_DIR="$HOME/dotfiles" 
+    DOTFILES_DIR="$HOME/.dotfiles" 
 
     log_info_user() { echo -e "  \e[1;32m[USER]\e[0m  $*"; }
 
