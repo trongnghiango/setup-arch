@@ -22,7 +22,7 @@ main() {
     # (Phần này không thay đổi, giữ nguyên như phiên bản trước)
     local USER_NAME="ka" DISK="vda" HOSTNAME="archlinux" FILESYSTEM="ext4" DOTFILES_METHOD="rsync"
     local DOTFILES_RSYNC_REPO="https://github.com/trongnghiango/voidrice.git"
-    local DOTFILES_STOW_REPO="https://github.com/user/stow-dotfiles.git"
+    local DOTFILES_STOW_REPO="https://github.com/trongnghiango/dotfiles-stow.git"
     local DOTFILES_REPO=""
     local PROGS_LIST_URL="https://raw.githubusercontent.com/trongnghiango/programs-list/refs/heads/main/progs.csv"
     local TIME_ZONE="Asia/Ho_Chi_Minh" LOCALE="en_US.UTF-8"
